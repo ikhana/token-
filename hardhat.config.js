@@ -25,9 +25,11 @@ module.exports = {
   solidity: "0.8.4",
   networks: {
     bsctestnet: {
-      url: process.env.ROPSTEN_URL || "",
+      url:  "https://data-seed-prebsc-1-s1.binance.org:8545",
+      chainId: 97,
+      gasPrice: 20000000000,
       accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+        process.env.PRIVATE_KEY.toString() !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
   },
   gasReporter: {

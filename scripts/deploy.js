@@ -14,12 +14,22 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract to deploy
-  const Greeter = await hre.ethers.getContractFactory("LifeCoin");
-  const greeter = await Greeter.deploy("1000");
+  const Lib = await ethers.getContractFactory("SafeMath");
+    const lib = await Lib.deploy();
+    await lib.deployed();
+
+    const Greeter = await ethers.getContractFactory("WorkContract", {
+     
+      libraries: {
+        SafeMath: lib.address,
+      },
+    });
+  
+  const greeter = await Greeter.deploy("aik", "aik","aik","aik", "0x9D8720082E11Dc71b899706582bb905ef75922Fe" ,"0x9D8720082E11Dc71b899706582bb905ef75922Fe");
 
   await greeter.deployed();
 
-  console.log("Greeter deployed to:", greeter.address);
+  console.log("WorkContract  deployed to:", greeter.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
