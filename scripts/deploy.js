@@ -18,18 +18,18 @@ async function main() {
     const lib = await Lib.deploy();
     await lib.deployed();
 
-    const Greeter = await ethers.getContractFactory("WorkContract", {
+    const Greeter = await ethers.getContractFactory("MainContract", {
      
       libraries: {
         SafeMath: lib.address,
       },
     });
   
-  const greeter = await Greeter.deploy("aik", "aik","aik","aik", "0x9D8720082E11Dc71b899706582bb905ef75922Fe" ,"0x9D8720082E11Dc71b899706582bb905ef75922Fe");
+  const greeter = await Greeter.deploy( "25","0xd1a5444F99BE6C3EefBc6998c5e7F0F069025d98");
 
   await greeter.deployed();
 
-  console.log("WorkContract  deployed to:", greeter.address);
+  console.log("MainContract  deployed to:", greeter.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

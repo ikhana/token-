@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "./Ownable.sol";
-
 library SafeMath {
     function safeAdd(uint256 a, uint256 b) external pure returns (uint256 c) {
         c = a + b;
@@ -66,24 +64,23 @@ contract ReentrancyGuard {
     }
 
     modifier nonReentrant() {
-        // On the first call to nonReentrant, _notEntered will be true
-        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+        
+        require(_status != _ENTERED);
 
-        // Any calls to nonReentrant after this point will fail
+    
         _status = _ENTERED;
 
         _;
 
-        // By storing the original value once again, a refund is triggered (see
-        // https://eips.ethereum.org/EIPS/eip-2200)
+      
         _status = _NOT_ENTERED;
     }
 }
 
-contract MainContract is ReentrancyGuard, Ownable {
+contract MainContract is ReentrancyGuard {
     using SafeMath for uint256;
-   // address payable platform_owner =
-      //  payable(0x259948d76C34636ED099529Ea977Db1769B7D545);
+    address payable public platform_owner =
+        payable(msg.sender);
     struct AccountData {
         uint8 accountType; // 0 => Freelancer, 1 => Customer
         address personWalletAddress;
@@ -107,10 +104,10 @@ contract MainContract is ReentrancyGuard, Ownable {
         require(personsAddress[msg.sender]);
         _;
     }
-   // modifier onlyOwner() {
-     //   require(platform_owner == payable(msg.sender));
-  //      _;
-   // }
+    modifier onlyOwner() {
+        require(platform_owner == payable(msg.sender));
+        _;
+    }
     modifier mustActive() {
         require(isActive);
         _;
@@ -131,6 +128,11 @@ contract MainContract is ReentrancyGuard, Ownable {
     {
         feeRates[_tokenAddress] = _feeRate;
     }
+     function transferOwnership(address newOwner) public onlyOwner {
+    require(newOwner != address(0));
+    
+    platform_owner = payable( newOwner);
+  }
 
     function changeSettings(uint256 _bnbFeeRate, address payable _feeAddress)
         external
@@ -157,8 +159,8 @@ contract MainContract is ReentrancyGuard, Ownable {
             personInfoData: _personInfoData
         });
 
-        accounts[msg.sender] = newAccount; // Adding a new account
-        allPersons.push(msg.sender); // Adding a new account
+        accounts[msg.sender] = newAccount; 
+        allPersons.push(msg.sender); 
         personsAddress[msg.sender] = true;
     }
 
@@ -272,13 +274,13 @@ contract MainContract is ReentrancyGuard, Ownable {
         }
     }
 }
-contract WorkContract is ReentrancyGuard, Ownable {
+
+contract WorkContract is ReentrancyGuard {
     using SafeMath for uint256;
         uint256 deadline;
-        bool tokenContractIsBNB;
         bool BratsShield;
         uint256 offerPrice;
-
+    address  payable public owner;
     MainContract deployedFromContract;
     struct Offer {
         uint256 offerPrice;
@@ -298,7 +300,6 @@ contract WorkContract is ReentrancyGuard, Ownable {
     string public employerCancelDescription;
     string public approverReport;
     string public employerRemark;
-
     uint256 public workCreateTime;
     uint256 public deadLine;
     uint256 public freelancerSendFilesDate;
@@ -323,6 +324,10 @@ contract WorkContract is ReentrancyGuard, Ownable {
         require(deployedFromContract.isActive());
         _;
     }
+       modifier onlyOwner() {
+        require(owner == payable(msg.sender));
+        _;
+    }
 
     constructor(
         string memory _workTitle,
@@ -332,6 +337,7 @@ contract WorkContract is ReentrancyGuard, Ownable {
         address payable _employerAddress,
         address _t
     ) {
+       owner = payable (msg.sender);
         workTitle = _workTitle;
         workCategory = _workCategory;
         workDescription = _workDescription;
@@ -344,7 +350,6 @@ contract WorkContract is ReentrancyGuard, Ownable {
         employerReceiveFiles = false;
         deployedFromContract = MainContract(_t);
     }
-
     function getWorkData()
         external
         view
@@ -370,6 +375,11 @@ contract WorkContract is ReentrancyGuard, Ownable {
     function getAllFreelancers() external view returns (address[] memory) {
         return allFreelancerAddress;
     }
+        function transferOwnership(address newOwner) public onlyOwner {
+    require(newOwner != address(0));
+    
+    owner = payable( newOwner);
+  }
 
     function updateWork(
         string memory _workTitle,
@@ -469,23 +479,19 @@ contract WorkContract is ReentrancyGuard, Ownable {
 
     function _payFreelancer() private {
         uint256 amount;
-
         if (isBNB) {
-            amount = workPrice.safeSub(
-                (workPrice.safeMul(deployedFromContract.bnbFeeRate())).safeDiv(
-                    1e6
-                )
-            );
+            amount = workPrice.safeSub((workPrice.safeMul(deployedFromContract.bnbFeeRate())).safeDiv(1000));
             freelancerAddress.transfer(amount);
-            deployedFromContract.feeAddress().transfer(
-                workPrice.safeSub(amount)
-            );
+            deployedFromContract.feeAddress().transfer(workPrice.safeSub(amount));
         }
     }
 
     function _payEmployer() private {
+        uint256 amount;
         if (isBNB) {
-            employerAddress.transfer(workPrice);
+            amount = workPrice.safeSub((workPrice.safeMul(deployedFromContract.bnbFeeRate())).safeDiv(1000));
+            freelancerAddress.transfer(amount);
+            deployedFromContract.feeAddress().transfer(workPrice.safeSub(amount));
         }
     }
 
@@ -518,18 +524,19 @@ contract WorkContract is ReentrancyGuard, Ownable {
     }
 
     function autoConfirm() external nonReentrant {
-        require(block.timestamp > freelancerSendFilesDate.safeAdd(1 days));
-        require(!employerReceiveFiles);
-        require(freelancerSendFiles);
+        require(block.timestamp > freelancerSendFilesDate.safeAdd(1 days),"auto confirm");
+        require(!employerReceiveFiles,"employee not reveived the file");
+        require(freelancerSendFiles,"freelancer send the files");
         _payFreelancer();
         deployedFromContract.setPuan(5, freelancerAddress);
         employerRemark = "Auto Confirmed By Smart Contract";
         workEndDate = block.timestamp;
     }
 
-    function sendDeadline() external nonReentrant {
-        require(block.timestamp > deadLine);
-        require(!freelancerSendFiles);
+    function sendDeadline() external  nonReentrant {
+        require(block.timestamp > deadLine,"dead line ");
+        require(!freelancerSendFiles,"freelancer doesnot send file ");
         _payEmployer();
+
     }
 }
